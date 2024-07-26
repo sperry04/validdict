@@ -1,2 +1,2 @@
 # ValidDictorian
-Declaritive Python dict validator
+Declarative Python Dictionary Validator
