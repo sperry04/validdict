@@ -1,5 +1,6 @@
 # Key Validators
 
+from __future__ import annotations
 from .results import Outcome, Result
 from .validator import Validator
 from .scalars import ScalarValidator
@@ -11,36 +12,22 @@ class KeyValidator(Validator):
     Base class for validating keys in a map
     """
 
-    def __init__(
-        self,
-        accepted_name: str | ScalarValidator = None,
-        *,
-        valid_outcome: Outcome = Outcome.PASS,
-        invalid_outcome: Outcome = Outcome.FAIL,
-        comment: str = "",
-    ) -> None:
+    def __init__(self, accepted_name:str|ScalarValidator=None, *, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
         """
         constructor
         :param accepted_name:       the valid key name, use None to accept anything
         :param valid_outcome:       the outcome to apply to the result when the value is valid, default: PASS
         :param invalid_outcome:     the outcome to apply to the result when the value is invalid, default: FAIL
+        :param comment:             comment associated with the possible outcomes
         """
-        super().__init__(
-            valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment
-        )
-        assert (
-            accepted_name is None
+        super().__init__(valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment)
+        if not (accepted_name is None
             or (isinstance(accepted_name, str) and len(accepted_name) > 0)
             or isinstance(accepted_name, ScalarValidator)
-        ), f"{self.__class__.__name__} accepted_name must be a non-zero length string, or a ScalarValidator"
+        ):
+            raise TypeError(f"{self.__class__.__name__} accepted_name must be a non-zero length string, or a ScalarValidator")
         self.accepted_name = accepted_name
-
-    def __repr__(self) -> str:
-        """
-        string representation of the validator
-        :return:            the name of the key
-        """
-        return super().__repr__() if self.accepted_name is None else self.accepted_name
+        self.repr = super().__repr__() if self.accepted_name is None else repr(self.accepted_name)
 
     def validate(self, value: object, path: list[str] = None) -> Result:
         """
@@ -61,24 +48,51 @@ class RequiredKey(KeyValidator):
     """
     Represents a required key in a map
     """
-
-    pass
+    def __init__(self, accepted_name:str, *, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
+        """
+        constructor
+        :param accepted_name:       the valid key name
+        :param valid_outcome:       the outcome to apply to the result when the value is valid, default: PASS
+        :param invalid_outcome:     the outcome to apply to the result when the value is invalid, default: FAIL
+        :param comment:             comment associated with the possible outcomes
+        """
+        super().__init__(
+            accepted_name=accepted_name, valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment
+        )
 
 
 class OptionalKey(KeyValidator):
     """
     Represents an optional key in a map
     """
-
-    pass
+    def __init__(self, accepted_name:str, *, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
+        """
+        constructor
+        :param accepted_name:       the valid key name
+        :param valid_outcome:       the outcome to apply to the result when the value is valid, default: PASS
+        :param invalid_outcome:     the outcome to apply to the result when the value is invalid, default: FAIL
+        :param comment:             comment associated with the possible outcomes
+        """
+        super().__init__(
+            accepted_name=accepted_name, valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment
+        )
 
 
 class OtherKeys(KeyValidator):
     """
     Represents an allowance for other keys in a map
     """
+    def __init__(self, *, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
+        """
+        constructor
+        :param valid_outcome:       the outcome to apply to the result when the value is valid, default: PASS
+        :param invalid_outcome:     the outcome to apply to the result when the value is invalid, default: FAIL
+        :param comment:             comment associated with the possible outcomes
+        """
+        super().__init__(
+            accepted_name=None, valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment
+        )
 
-    pass
 
 
 class StartsWith(KeyValidator, ScalarValidator):
@@ -87,14 +101,7 @@ class StartsWith(KeyValidator, ScalarValidator):
     CAUTION: Multiple inheritance!  This is a KeyValidator and ScalarValidator
     """
 
-    def __init__(
-        self,
-        *accepted_prefixes,
-        case_sensitive: bool = True,
-        valid_outcome: Outcome = Outcome.PASS,
-        invalid_outcome: Outcome = Outcome.FAIL,
-        comment: str = "",
-    ) -> None:
+    def __init__(self, *accepted_prefixes, case_sensitive:bool=True, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
         """
         constructor
         :param prefixes:            args list of accepted prefixes
@@ -105,25 +112,15 @@ class StartsWith(KeyValidator, ScalarValidator):
         Validator.__init__(
             self, valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment
         )
-        assert all(
-            isinstance(accepted_prefix, str) and len(accepted_prefix) > 0
-            for accepted_prefix in accepted_prefixes
-        ), f"{self.__class__.__name__} accepted_prefixes must be non-zero length strings"
+        if not all(isinstance(accepted_prefix, str) and len(accepted_prefix) > 0 for accepted_prefix in accepted_prefixes):
+            raise TypeError(f"{self.__class__.__name__} accepted_prefixes must be non-zero length strings")
         self.case_sensitive = case_sensitive
         if self.case_sensitive:
             self.accepted_prefixes = tuple(accepted_prefixes)
         else:
             # we're going to convert all the accepted_values to lowercase for later validation calls
             self.accepted_prefixes = tuple(ap.lower() for ap in accepted_prefixes)
-
-    def __repr__(self) -> str:
-        """
-        string representation of the validator
-        :return:            list of the accepted prefixes
-        """
-        return f"must start with" + format_sequence(
-            self.accepted_prefixes, prefix="one of (", suffix=")"
-        )
+        self.repr = f"must start with " + format_sequence(self.accepted_prefixes, prefix="one of (", suffix=")")
 
     def validate(self, value: object, path: list[str] = None) -> Result:
         """

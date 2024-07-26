@@ -1,99 +1,43 @@
 # Schema validation wrapper
 
+from __future__ import annotations
 from .results import Outcome, Result, ResultSet
 from .validator import Validator
-from .scalars import Str, Bool, Num
-from .seq import Seq
-from .map import Map
 from .contextual import ContextualValidator
 
 import logging
-
 logger = logging.getLogger(__name__)
 
 class Schema:
     """
-    Validation Schema    
+    Validation Schema
+    - encapsulates the root of the validation tree
     """
     def __init__(self, schema: object) -> None:
-        self.schema = Validator.for_value(schema)
+        self.validator = Validator.for_value(schema)
 
-    def validate(
-        self,
-        document: object,
-        *outcome_filters: Outcome,
-        suppress_logging: bool = False,
-        logging_config: dict = None,
-        context: object = None
-    ) -> ResultSet:
-        # if there's no explicit context, use the document itself
-        if context is None:
-            context = document
-        # validate the document with context
-        rval = ContextualValidator.validate_with_context(self.schema, document, context=context)
-        if not suppress_logging:
-            Schema.log_results(rval, *outcome_filters, logging_config=logging_config)
-        return rval  # return the results
+    def __repr__(self) -> str:
+        return repr(self.validator)
+
+    def validate(self, document:object, context:object=None) -> ResultSet:
+        """
+        Validate a document against the schema
+        :param document:            the document to validate
+        :param context:             context object to pass to any contextual validators
+        """
+        # validate the document with context; if there's no explicit context, use the document itself
+        return ContextualValidator.validate_with_context(self.validator, document, context=(document if context is None else context))
 
     @staticmethod
-    def validator_for_value(
-        value: object,
-        *,
-        valid_outcome: Outcome = Outcome.PASS,
-        invalid_outcome: Outcome = Outcome.FAIL,
-        comment: str = "",
-    ) -> Validator:
+    def log_results(results:Result|ResultSet, *outcome_filters:Outcome, logging_config:dict=None):
         """
-        Creates a validator matching the type of the value
-        :param value:           the value to base the new validator on
-        :return:                Validator that will exclusively validate the provided value
+        Static helper method to log the results of a schema validation
+        :param results:             the result/resultset to log
+        :param outcome_filters:     args list of outcomes to include in the log output
+        :param logging_config:      dict that maps outcomes to logging level functions
         """
-        if isinstance(value, Validator):
-            return value
-        if isinstance(value, dict):
-            return Map(
-                value,
-                valid_outcome=valid_outcome,
-                invalid_outcome=invalid_outcome,
-                comment=comment,
-            )
-        if isinstance(value, list):
-            return Seq(
-                value,
-                valid_outcome=valid_outcome,
-                invalid_outcome=invalid_outcome,
-                comment=comment,
-            )
-        if isinstance(value, str):
-            return Str(
-                value,
-                valid_outcome=valid_outcome,
-                invalid_outcome=invalid_outcome,
-                comment=comment,
-            )
-        if isinstance(value, bool):  # must be checked before int because bools are ints
-            return Bool(
-                value,
-                valid_outcome=valid_outcome,
-                invalid_outcome=invalid_outcome,
-                comment=comment,
-            )
-        if isinstance(value, (int, float)):
-            return Num(
-                value,
-                valid_outcome=valid_outcome,
-                invalid_outcome=invalid_outcome,
-                comment=comment,
-            )
-        assert False, f"could not create Validator for '{value}'"
-
-
-    @staticmethod
-    def log_results(
-        results: Result | ResultSet, *outcome_filters: Outcome, logging_config: dict = None
-    ):
         # init a logging_config if none was provided
-        if not logging_config:
+        if logging_config is None:
             logging_config = {}
 
         # add in any missing loggers

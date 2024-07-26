@@ -1,11 +1,11 @@
 # Map validator
 
-from .results import Outcome, Result, ResultSet
+from .results import Outcome, FixedOutcome, Result, ResultSet
 from .validator import Validator, Any
 from .key import KeyValidator, RequiredKey, OtherKeys, StartsWith
 from .contextual import ContextualValidator
 from .helpers import format_sequence, extend_path
-
+from .locator import Locator
 
 class Map(ContextualValidator):
     """
@@ -27,8 +27,9 @@ class Map(ContextualValidator):
         :param map:         dict structure of validators
         """
         if map is None: map = { OtherKeys(): Any() }                                                # assume a pretty open-ended dict validator if none was provided
+        if not isinstance(map, dict):
+            raise TypeError(f"Map must be of type dict (not {type(map)})")
         super().__init__(valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment)
-        assert isinstance(map, dict), f"Map must be of type dict (not {type(map)})"                 # TODO: make this a runtime exception?
 
         # convert all the raw keys/values that aren't Validators into Validators
         self.map = {                                                                                # dictionary comprehension that... 
@@ -47,11 +48,13 @@ class Map(ContextualValidator):
 
         # prevent non-KeyValidators being used on the key side of the map schema
         illegal_validators = [ validator for validator in self.map.keys() if isinstance(validator, Validator) and not isinstance(validator, KeyValidator) ]
-        assert len(illegal_validators) == 0, f"Validator(s) ({format_sequence([ type(v).__name__ for v in illegal_validators ])}) may not be used to validate keys"
+        if len(illegal_validators) != 0:
+            raise TypeError(f"Validator(s) ({format_sequence([ type(v).__name__ for v in illegal_validators ])}) may not be used to validate keys")
 
         # prevent KeyValidators being used on the value side of the map schema
         illegal_validators = [ validator for validator in self.map.values() if isinstance(validator, KeyValidator) ]
-        assert len(illegal_validators) == 0, f"KeyValidator(s) ({format_sequence([ type(v).__name__ for v in illegal_validators ])}) may not be used to validate values"
+        if len(illegal_validators) != 0:
+            raise TypeError(f"KeyValidator(s) ({format_sequence([ type(v).__name__ for v in illegal_validators ])}) may not be used to validate values")
 
         # look for ambiguous fixed key names
         key_names = []
@@ -59,7 +62,8 @@ class Map(ContextualValidator):
             if not isinstance(key, (OtherKeys, StartsWith)):                                        # if they are a KeyValidator with a fixed "accepted_value"...
                 key_names.append(key.accepted_name)                                                 # add the KeyValidator's accepted value to the key_names
         duplicates = set(name for name in key_names if key_names.count(name) > 1)                   # look for duplicates in the fixed value key_names
-        assert len(duplicates) == 0, f"Map has duplicate key names: {duplicates}"                   # TODO: make this a runtime exception?
+        if len(duplicates) != 0:
+            raise TypeError(f"Map has duplicate key names: {duplicates}")
 
         # look for cases where StartsWith() KeyValidators overlap with fixed keys
         duplicates = []
@@ -72,7 +76,8 @@ class Map(ContextualValidator):
                     else:
                         if fk.accepted_name.lower().startswith(prefix.lower()):
                             duplicates.append(f"StartsWith('{prefix}') overlaps with Key('{fk.accepted_name}')")
-        assert len(duplicates) == 0, f"Map has ambiguous StartsWith() keys: {duplicates}"           # TODO: make this a runtime exception?
+        if len(duplicates) != 0:
+            raise TypeError(f"Map has ambiguous StartsWith() keys: {duplicates}")
 
         # now look for StartsWith() KeyValidators that overlap with each other, this is not pretty, 
         # and it's even worse due to the fact that some StartsWith are case_sensitive and some are not
@@ -90,7 +95,8 @@ class Map(ContextualValidator):
                             else:
                                 if prefix_i.lower().startswith(prefix_j.lower()):
                                     duplicates.append(f"StartsWith({prefix_j}) overlaps with StartsWith({prefix_i})")
-        assert len(duplicates) == 0, f"Map has ambiguous StartsWith() keys: {duplicates}"           # TODO: make this a runtime exception?
+        if len(duplicates) != 0:
+            raise TypeError(f"Map has ambiguous StartsWith() keys: {duplicates}")
 
         # TODO: are there additional structural checks that need to be done?
 
@@ -98,7 +104,8 @@ class Map(ContextualValidator):
         self.required_keys = [ key for key in self.map.keys() if isinstance(key, RequiredKey) ]     # will be used for required key validations
         self.keys = [ key for key in self.map.keys() if not isinstance(key, OtherKeys) ]            # will be used for first-chance validations
         self.other_keys = [ key for key in self.map.keys() if isinstance(key, OtherKeys) ]          # will be used fore second-chance (OtherKeys() catch-all) validations
-        assert len(self.other_keys) <= 1, "Map cannot have multiple OtherKeys() keys"               # TODO: make this a runtime exception?
+        if len(self.other_keys) > 1:
+            raise TypeError("Map cannot have multiple OtherKeys() keys")
 
     def __repr__(self) -> str:
         """
@@ -143,7 +150,7 @@ class Map(ContextualValidator):
                 if not any(key_validator.validate(key).outcome != Outcome.FAIL for key in value.keys()):
                     missing_required_keys.append(key_validator.accepted_name)
             if len(missing_required_keys) > 0:
-                rval.add_results(Result(outcome=self.invalid_outcome, value=format_sequence(missing_required_keys, quote=""), path=extend_path(path, f"RequiredKey('<all>')"), validator="missing required key(s)"))
+                rval.add_results(Result(outcome=self.invalid_outcome, value=format_sequence(missing_required_keys, quote=""), path=extend_path(path, f"RequiredKey('<all>')"), validator=FixedOutcome(self.invalid_outcome, is_valid=False, message="missing required key(s)")))
 
             # validate each key/value pair against it's KeyValidator and matching value Validator
             for k, v in value.items():                                                              # loop over all the key/value pairs in the dict to validate each of them
@@ -155,9 +162,11 @@ class Map(ContextualValidator):
                     if second_chance_results.result_count > 0:                                      # if the second chance (other key) results were found 
                         rval.add_results(second_chance_results)                                     # add the results
                     else:
-                        rval.add_results(Result(outcome=self.invalid_outcome, value=k, path=extend_path(path, f"Key('{k}')"), validator="unknown key name"))      # no keys validated, it must be illegal
+                        rval.add_results(Result(outcome=self.invalid_outcome, value=k, path=extend_path(path, f"Key('{k}')"), validator=FixedOutcome(self.invalid_outcome, is_valid=False, message="unknown key name")))      # no keys validated, it must be illegal
 
         else:
             rval.add_results(Result(outcome=self.invalid_outcome, value=value, path=path, validator=self))        # not a dict, it must be invalid
         return rval
 
+# register the Map validator with the Locator to validate dict objects
+Locator.register(dict, Map)

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-def format_sequence(
-    seq: tuple | list, separator: str = ", ", quote: str = "'", prefix: str = "", suffix: str = ""
-) -> str:
+def format_sequence(seq:tuple|list, separator:str=", ", quote:str="'", prefix:str="", suffix:str="") -> str:
     """
     formats a sequence (list or tuple) for printing as a delimited string with prefix/suffix when there are multiple items
     """
@@ -12,9 +10,7 @@ def format_sequence(
         if len(seq) == 1:
             rval = format_sequence(seq[0], separator, quote)
         else:
-            rval = (
-                prefix + separator.join(format_sequence(i, separator, quote) for i in seq) + suffix
-            )
+            rval = (prefix + separator.join(format_sequence(i, separator, quote) for i in seq) + suffix)
     elif isinstance(seq, str):
         rval = quote + seq + quote
     elif hasattr(seq, "__name__"):
@@ -24,20 +20,14 @@ def format_sequence(
     return rval
 
 
-def path_padding(path, padding: str = "  ", offset: int = 0) -> str:
+def path_padding(path, padding:str="  ", offset:int=0) -> str:
     """
     returns a padding string for indenting based on the number of items in a path list
     """
     return "" if (path is None or padding is None) else padding * (len(path) + offset)
 
 
-def format_path(
-    path: list[str] = None,
-    prefix: str = "",
-    suffix: str = "",
-    padding: str = "  ",
-    padding_offset: int = 0,
-) -> str:
+def format_path(path:list[str]=None, prefix:str="", suffix:str="", padding:str="  ", padding_offset:int=0) -> str:
     """
     formats a result path for printing as a dot-delimited string
     """
@@ -46,8 +36,7 @@ def format_path(
     return ""
 
 
-# TODO: the type hint for key was KeyValidator?
-def extend_path(path: list[str] = None, key: str = None) -> list[str]:
+def extend_path(path:list[str]=None, key:str=None) -> list[str]:
     """
     adds key to the end of path, handling Nones
     """

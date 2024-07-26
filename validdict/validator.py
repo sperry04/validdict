@@ -3,6 +3,7 @@
 from __future__ import annotations
 from .results import Outcome, OutcomeProvider, Result, ResultSet
 from .helpers import extend_path
+from .locator import Locator
 
 
 class Validator(OutcomeProvider):
@@ -10,26 +11,21 @@ class Validator(OutcomeProvider):
     Base class for all validators
     """
 
-    def __init__(
-        self,
-        *,
-        valid_outcome: Outcome = Outcome.PASS,
-        invalid_outcome: Outcome = Outcome.FAIL,
-        comment: str = "",
-    ) -> None:
+    def __init__(self, *, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
         """
         constructor
         :param valid_outcome:       the outcome to apply to the result when the value is valid, default: PASS
         :param invalid_outcome:     the outcome to apply to the result when the value is invalid, default: FAIL
         """
         super().__init__(valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment)
+        self.repr = self.__class__.__name__ + "()"
 
     def __repr__(self) -> str:
         """
         string representation of the validator
-        :return:            the class name of the validator
+        :return:            the string representation of the validator
         """
-        return self.__class__.__name__ + "()"
+        return self.repr
 
     def __or__(self, other:Validator) -> Or:
         """
@@ -39,7 +35,7 @@ class Validator(OutcomeProvider):
         """
         return Or(self, other)
 
-    def validate(self, value:object, path:list[str]=None) -> Result | ResultSet:
+    def validate(self, value:object, path:list[str]=None) -> Result|ResultSet:
         """
         abstract validation method
         :param value:       the value to validate
@@ -48,6 +44,21 @@ class Validator(OutcomeProvider):
         """
         raise NotImplementedError(self)
 
+    @staticmethod
+    def for_value(value:object, *, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> Validator:
+        """
+        Creates a validator matching the type of the value found in the Locator
+        :param value:           the value to base the new validator on
+        :return:                Validator that will exclusively validate the provided value
+        """
+        if isinstance(value, Validator):
+            return value      
+        
+        validator_type = Locator.lookup(type(value)) # lookup the validator by the type of the value
+        if isinstance(validator_type, type) and issubclass(validator_type, Validator):
+            return validator_type(value, valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment)
+        raise TypeError(f"No known Validator for type '{type(value).__name__}'")
+
 
 class Or(Validator):
     """
@@ -55,24 +66,20 @@ class Or(Validator):
     - Created when other validators are |'d together
     """
 
-    def __init__(
-        self,
-        *validators: Validator,
-        valid_outcome: Outcome = Outcome.PASS,
-        invalid_outcome: Outcome = Outcome.FAIL,
-        comment: str = "",
-    ) -> None:
+    def __init__(self, *validators:Validator, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
         """
         constructor
         :param validators:  args list of validators to add to the set
         """
-        assert len(validators) >= 2, "Or must encapsulate at least 2 validators"
+        if len(validators) < 2:
+            raise TypeError("Or must encapsulate at least 2 validators")
+        if not all(isinstance(validator, Validator) for validator in validators):
+            raise TypeError("validators must be of type Validator")
         super().__init__(
             valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment
         )
         self.validators: list[Validator] = []
         for validator in validators:
-            assert isinstance(validator, Validator), "validator(s) must be a Validator"
             if isinstance(validator, Or):
                 self.validators.extend(validator.validators)
             else:

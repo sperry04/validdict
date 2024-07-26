@@ -1,21 +1,17 @@
 # Sequence Validator
 
-from results import Outcome, Result, ResultSet
-from validator import Validator
-from helpers import extend_path
+from .results import Outcome, Result, ResultSet
+from .validator import Validator, Or
+from .helpers import extend_path
+from .locator import Locator
+
 
 class Seq(Validator):
     """
     Validates that a sequence of items are of the required type(s)
     """
 
-    def __init__(
-        self,
-        *validators: Validator,
-        valid_outcome: Outcome = Outcome.PASS,
-        invalid_outcome: Outcome = Outcome.FAIL,
-        comment: str = "",
-    ) -> None:
+    def __init__(self, *validators:Validator, valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment:str="") -> None:
         """
         constructor
         :param validators:      args list of validators that validate items in the list
@@ -23,9 +19,8 @@ class Seq(Validator):
         super().__init__(
             valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment
         )
-        assert all(
-            isinstance(v, Validator) for v in validators
-        ), f"validator(s) must be of type Validator"
+        if not all(isinstance(v, Validator) for v in validators):
+            raise TypeError(f"validator(s) must be of type Validator")
         if len(validators) == 0:
             self.validator = None
         elif len(validators) == 1:
@@ -67,3 +62,6 @@ class Seq(Validator):
                 Result(outcome=self.invalid_outcome, value=value, path=path, validator=self)
             )
         return rval
+    
+# register the Seq validator with the Locator to validate list objects
+Locator.register(list, Seq)

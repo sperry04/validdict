@@ -39,13 +39,7 @@ class OutcomeProvider(object):
     invalid_outcome:Outcome
     comment:str
 
-    def __init__(
-        self,
-        *,
-        valid_outcome: Outcome = Outcome.PASS,
-        invalid_outcome: Outcome = Outcome.FAIL,
-        comment: str = "",
-    ) -> None:
+    def __init__(self, *,valid_outcome:Outcome=Outcome.PASS, invalid_outcome:Outcome=Outcome.FAIL, comment: str = "") -> None:
         """
         constructor
         :param valid_outcome:       the outcome to apply to the result when the value is valid, default: PASS
@@ -55,6 +49,27 @@ class OutcomeProvider(object):
         self.valid_outcome = valid_outcome
         self.invalid_outcome = invalid_outcome
         self.comment = comment
+
+
+class FixedOutcome(OutcomeProvider):
+    """
+    Represents a fixed outcome without any validation  
+    """
+    def __init__(self, outcome:Outcome=Outcome.NONE, is_valid:bool=True, message:str="", comment:str="") -> None:
+        """
+        constructor
+        :param outcome:     the fixed outcome to apply to the result
+        :param comment:     comment associated with the outcome
+        """
+        super().__init__(valid_outcome=outcome if is_valid else Outcome.NONE, invalid_outcome=Outcome.NONE if is_valid else outcome, comment=comment)
+        self.message = message
+
+    def __repr__(self) -> str:
+        """
+        string representation of the outcome
+        :return:    indented path/key prefix, the validated value, the validator description, and the outcome
+        """
+        return self.message
 
 
 class Result(object):
@@ -68,7 +83,7 @@ class Result(object):
     message:str
     comment:str
 
-    def __init__(self, outcome:Outcome, value:object, path:list[str], validator:OutcomeProvider|str) -> None:
+    def __init__(self, outcome:Outcome, value:object, path:list[str], validator:OutcomeProvider=None) -> None:
         """
         constructor
         :param outcome:     the outcome of the validation: PASS, FAIL, etc.
@@ -76,23 +91,16 @@ class Result(object):
         :param path:        list of parent keys for nested/compound structures
         :param validator:   the validator that validated the value and generated this result
         """
-        assert isinstance(outcome, Outcome), "outcome must be a ValidationOutcome"
-        assert validator is None or isinstance(validator, (OutcomeProvider, str)), "validator must be a Validator or a string"
+        if not isinstance(outcome, Outcome):
+            raise TypeError("outcome must be an Outcome")
+        if not (validator is None or isinstance(validator, OutcomeProvider)):
+            raise TypeError("validator must be an OutcomeProvider")
         self._outcome = outcome
         self.value = value
         self.path = path
-        if validator is None:
-            self.validator = None
-            self.message = ""
-            self.comment = ""
-        elif isinstance(validator, str):
-            self.validator = None
-            self.message = validator
-            self.comment = ""
-        else:
-            self.validator = validator
-            self.message = repr(validator)
-            self.comment = "" if validator.comment is None or len(validator.comment) == 0 else f" # {validator.comment}"
+        self.validator = FixedOutcome(message="no validator") if validator is None else validator
+        self.message = repr(self.validator)
+        self.comment = "" if self.validator.comment is None or len(self.validator.comment) == 0 else f" # {self.validator.comment}"
 
     def __repr__(self) -> str:
         """
@@ -116,13 +124,15 @@ class Result(object):
     def __bool__(self) -> bool:
         """
         bool representation of the result
-        :return:            True if the outcome matches the validator's valid_outcome (or if the outcome is not FAIL if there is no validator), False otherwise
+        :return:            True if the outcome matches the validator's valid_outcome AND doesn't match the validator's invalid_outcome, False otherwise
         """
-        if self.validator is None:
-            return self.outcome != Outcome.FAIL                                                     # everything but FAIL is a True for a Result by default
-        else:
-            # TODO: potential BUG since validators are not immutable, this could change... is that actually a feature?
-            return self.outcome == self.validator.valid_outcome                                     # True if the outcome in the result matches the valid_outcome in the validator that generated the result
+        # TODO: potential BUG since validators are not immutable, this could change... is that actually a feature?
+        # check both valid and invalid outcomes to handle a situation where valid == invalid in the validator
+        return (
+            (self.outcome == self.validator.valid_outcome or self.validator.valid_outcome == Outcome.NONE)
+            and 
+            (self.outcome != self.validator.invalid_outcome or self.validator.invalid_outcome == Outcome.NONE)
+        )
         
     @property
     def outcome(self) -> Outcome:
@@ -152,6 +162,8 @@ class ResultSet(object):
         string representation of the result set
         :return:            newline-delimited list of the results in the set
         """
+        if len(self._results) == 0:
+            return "No Results"
         return '\n'.join([ repr(result) for result in self._results ] )
 
     def __or__(self, other:Result|ResultSet) -> ResultSet:
@@ -174,8 +186,9 @@ class ResultSet(object):
         add results to the set
         :param results:     args list of results or result sets to add to the set
         """
+        if not all(isinstance(result, (Result, ResultSet)) for result in results):
+            raise TypeError("added results must be either a Result or a ResultSet")
         for result in results:
-            assert isinstance(result, (Result, ResultSet)), "result(s) must be either a Result or a ResultSet"
             if isinstance(result , ResultSet):
                 self._results.extend(result.get_results())
             else:
@@ -187,7 +200,8 @@ class ResultSet(object):
         :param filters:     args list of outcomes to filter the results, use no filters for all results
         :return:            list of the results with the matching filters
         """
-        assert all(isinstance(filter, Outcome) for filter in filters), "filter(s) must be Outcome enums"
+        if not all(isinstance(filter, Outcome) for filter in filters):
+            raise TypeError("filter(s) must be Outcome enums")
         if len(filters) == 0:
             return self._results
         return [ result for result in self._results if result.outcome in filters ]
