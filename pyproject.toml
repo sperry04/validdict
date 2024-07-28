@@ -1,18 +1,13 @@
 [tool.poetry]
 name = "validdict"
 version = "0.1.0"
-description = "Declarative Python Dictionary Validator"
-authors = ["Scott Perry"]
+description = "ValidDictorian: Declarative Python Dictionary Validator"
+authors = ["Scott Perry <sperry04@users.noreply.github.com>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-
-
-[tool.poetry.group.test.dependencies]
-pytest = "^8.0.2"
-
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"

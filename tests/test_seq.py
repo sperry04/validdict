@@ -1,5 +1,5 @@
 import pytest
-from validdict import Schema, Any, Str, Num
+from validdict import Schema, Any, Str, Num, Outcome
 from validdict import Seq # object under test
 
 class TestSeq:
@@ -26,16 +26,63 @@ class TestSeq:
                 "key": Seq()
             }
         )
+
         results = schema.validate({"key": []})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"key": [1, 2, 3]})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"key": 1})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
+        assert not results
+
+    def test_seq_min_len(self):
+        schema = Schema(
+            {
+                "key": Seq(min_len=2)
+            }
+        )
+
+        results = schema.validate({"key": [1, 2, 3]})
+        assert len(results.filter(Outcome.FAIL)) == 0
+        assert results
+
+        results = schema.validate({"key": [1, 2]})
+        assert len(results.filter(Outcome.FAIL)) == 0
+        assert results
+
+        results = schema.validate({"key": [1]})
+        assert len(results.filter(Outcome.FAIL)) == 1
+        assert not results
+
+        results = schema.validate({"key": []})
+        assert len(results.filter(Outcome.FAIL)) == 1
+        assert not results
+
+    def test_seq_max_len(self):
+        schema = Schema(
+            {
+                "key": Seq(max_len=2)
+            }
+        )
+
+        results = schema.validate({"key": []})
+        assert len(results.filter(Outcome.FAIL)) == 0
+        assert results
+
+        results = schema.validate({"key": [1]})
+        assert len(results.filter(Outcome.FAIL)) == 0
+        assert results
+
+        results = schema.validate({"key": [1, 2]})
+        assert len(results.filter(Outcome.FAIL)) == 0
+        assert results
+
+        results = schema.validate({"key": [1, 2, 3]})
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
     def test_type_seq_validation(self):
@@ -44,30 +91,31 @@ class TestSeq:
                 "key": Seq(Str(), Num())
             }
         )
+
         results = schema.validate({"key": []})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"key": [1, 2, 3]})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"key": ["aaa", "bbb", "ccc"]})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"key": ["aaa", 1, "bbb", 2]})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"key": 1})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
         results = schema.validate({"key": [True, True, False]})
-        assert results.fail_count == 9
+        assert len(results.filter(Outcome.FAIL)) == 9
         assert not results
 
         results = schema.validate({"key": ["aaa", 1, "bbb", 2, False]})
-        assert results.fail_count == 3
+        assert len(results.filter(Outcome.FAIL)) == 3
         assert not results

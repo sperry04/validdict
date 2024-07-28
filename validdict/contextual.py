@@ -33,12 +33,10 @@ class ContextualValidator(Validator):
         return validator.validate(value=value, path=path)
 
 
-class CallbackValidator(ContextualValidator, KeyValidator):
+class CallbackValidator(ContextualValidator):
     """
     Validates a value by executing a callback/lambda that returns the actual Validator to use at validation time
     - the callback is provided the current context in order to allow referencing other values within the dict
-    - use caution when using this as a KeyValidator as callback implementations MUST resolve to a KeyValidator
-      that does not collide with another key!  Keys MUST be unique in a map or document validation will be inconsistent!
     """
 
     class CallbackContext:
@@ -76,3 +74,12 @@ class CallbackValidator(ContextualValidator, KeyValidator):
                 return ContextualValidator.validate_with_context(validator, value, path, context)   # validate the value with the selected validator
         # in the case that there was no callback or a non-Validator was returned from the callback, return invalid Result
         return Result(outcome=self.invalid_outcome, value=value, path=path, validator=self)
+
+
+class CallbackKeyValidator(CallbackValidator, KeyValidator):
+    """
+    CallbackValidator that can be used as a KeyValidator
+    - use caution when using this as a KeyValidator as callback implementations MUST resolve to a KeyValidator
+      that does not collide with another key!  Keys MUST be unique in a map or document validation will be inconsistent!
+    """
+    pass

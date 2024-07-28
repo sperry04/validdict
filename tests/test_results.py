@@ -16,6 +16,12 @@ class TestOutcomeProvider:
         assert op.invalid_outcome == Outcome.WARN
         assert op.comment == "a comment"
 
+        with pytest.raises(TypeError):
+            OutcomeProvider(valid_outcome="PASS")
+
+        with pytest.raises(TypeError):
+            OutcomeProvider(invalid_outcome="FAIL")
+
 
 class TestFixedOutcome:
 
@@ -79,7 +85,7 @@ class TestResult:
 
 class TestResultSet:
 
-    def test_resultset_constructor(self):
+    def test_constructor(self):
         results = ResultSet()
         assert isinstance(results, ResultSet)
         assert repr(results) == "No Results"
@@ -88,19 +94,34 @@ class TestResultSet:
         results.add_results(Result(Outcome.FAIL, "value2", [], None))
         assert repr(results) == "'value1' no validator = 'PASS'\n'value2' no validator = 'FAIL'"
 
-    def test_resultset_or(self):
+    def test_or(self):
         fo = FixedOutcome(Outcome.PASS)
         results = ResultSet() | Result(Outcome.PASS, "value1", [], fo) | Result(Outcome.PASS, "value2", [], fo)
         assert isinstance(results, ResultSet)
         assert results
 
-    def test_resultset_bool(self):
+    def test_bool(self):
         results = ResultSet()
         assert results
         results.add_results(Result(Outcome.PASS, "value1", [], FixedOutcome(Outcome.PASS)))
         assert results
         results.add_results(Result(Outcome.FAIL, "value2", [], FixedOutcome(Outcome.PASS)))
         assert not results
+
+    def test_len(self):
+        results = ResultSet()
+        assert len(results) == 0
+        results.add_results(Result(Outcome.PASS, "value1", [], FixedOutcome(Outcome.PASS)))
+        assert len(results) == 1
+        results.add_results(Result(Outcome.FAIL, "value2", [], FixedOutcome(Outcome.PASS)))
+        assert len(results) == 2
+
+    def test_iter(self):
+        results = ResultSet()
+        results.add_results(Result(Outcome.PASS, "value1", [], FixedOutcome(Outcome.PASS)))
+        results.add_results(Result(Outcome.FAIL, "value2", [], FixedOutcome(Outcome.PASS)))
+        for result in results:
+            assert isinstance(result, Result)
 
     def test_add_results(self):
         results = ResultSet()
@@ -108,77 +129,20 @@ class TestResultSet:
         results.add_results(Result(Outcome.INFO, "value2", [], FixedOutcome(Outcome.INFO)))
         results.add_results(Result(Outcome.WARN, "value3", [], FixedOutcome(Outcome.WARN)))
         results.add_results(Result(Outcome.FAIL, "value4", [], FixedOutcome(Outcome.FAIL)))
-        assert len(results.get_results()) == 4
+        assert len(results) == 4
         with pytest.raises(TypeError):
             results.add_results("not a result")
 
-    def test_get_results(self):
+    def test_filter(self):
         results = ResultSet()
         results.add_results(Result(Outcome.PASS, "value1", [], FixedOutcome(Outcome.PASS)))
         results.add_results(Result(Outcome.INFO, "value2", [], FixedOutcome(Outcome.INFO)))
         results.add_results(Result(Outcome.WARN, "value3", [], FixedOutcome(Outcome.WARN)))
         results.add_results(Result(Outcome.FAIL, "value4", [], FixedOutcome(Outcome.FAIL)))
-        assert len(results.get_results()) == 4
-        assert len(results.get_results(Outcome.PASS)) == 1
-        assert len(results.get_results(Outcome.INFO)) == 1
-        assert len(results.get_results(Outcome.WARN)) == 1
-        assert len(results.get_results(Outcome.FAIL)) == 1
+        assert len(results) == 4
+        assert len(results.filter(Outcome.PASS)) == 1
+        assert len(results.filter(Outcome.INFO)) == 1
+        assert len(results.filter(Outcome.WARN)) == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         with pytest.raises(TypeError):
-            results.get_results("not an outcome enum")
-
-    def test_resultset_counts(self):
-        results = ResultSet()
-        assert results.result_count == 0
-        assert results.pass_count == 0
-        assert results.info_count == 0
-        assert results.warn_count == 0
-        assert results.fail_count == 0
-        assert results
-        results.add_results(Result(Outcome.PASS, "value1", [], FixedOutcome(Outcome.PASS)))
-        assert results.result_count == 1
-        assert results.pass_count == 1
-        assert results.info_count == 0
-        assert results.warn_count == 0
-        assert results.fail_count == 0
-        assert results
-        results.add_results(Result(Outcome.INFO, "value2", [], FixedOutcome(Outcome.INFO)))
-        assert results.result_count == 2
-        assert results.pass_count == 1
-        assert results.info_count == 1
-        assert results.warn_count == 0
-        assert results.fail_count == 0
-        assert results
-        results.add_results(Result(Outcome.WARN, "value2", [], FixedOutcome(Outcome.WARN)))
-        assert results.result_count == 3
-        assert results.pass_count == 1
-        assert results.info_count == 1
-        assert results.warn_count == 1
-        assert results.fail_count == 0
-        assert results
-        results.add_results(Result(Outcome.FAIL, "value2", [], FixedOutcome(Outcome.PASS)))
-        assert results.result_count == 4
-        assert results.pass_count == 1
-        assert results.info_count == 1
-        assert results.warn_count == 1
-        assert results.fail_count == 1
-        assert not results
-
-    def test_resultset_get_results(self):
-        results = ResultSet()
-        results.add_results(Result(Outcome.PASS, "value1", [], FixedOutcome(Outcome.PASS)))
-        results.add_results(Result(Outcome.INFO, "value2", [], FixedOutcome(Outcome.INFO)))
-        results.add_results(Result(Outcome.WARN, "value3", [], FixedOutcome(Outcome.WARN)))
-        results.add_results(Result(Outcome.FAIL, "value4", [], FixedOutcome(Outcome.FAIL)))
-        assert len(results.get_results()) == 4
-        assert len(results.get_results(Outcome.PASS)) == 1
-        assert len(results.get_results(Outcome.INFO)) == 1
-        assert len(results.get_results(Outcome.WARN)) == 1
-        assert len(results.get_results(Outcome.FAIL)) == 1
-        assert len(results.get_results(Outcome.NONE)) == 0
-        assert len(results.get_results(Outcome.PASS, Outcome.INFO)) == 2
-        assert len(results.get_results(Outcome.PASS, Outcome.INFO, Outcome.WARN)) == 3
-        assert len(results.get_results(Outcome.PASS, Outcome.INFO, Outcome.WARN, Outcome.FAIL)) == 4
-        assert len(results.get_results(Outcome.PASS, Outcome.INFO, Outcome.WARN, Outcome.FAIL, Outcome.NONE)) == 4
-        assert len(results.get_results(Outcome.INFO, Outcome.WARN, Outcome.FAIL)) == 3
-        assert len(results.get_results(Outcome.WARN, Outcome.FAIL)) == 2
-
+            results.filter("not an outcome enum")

@@ -1,5 +1,5 @@
 ## ValidDictorian API
-from .validator import Or, Any
+from .validator import Or, Any, Outcome
 from .key import KeyValidator, RequiredKey, OptionalKey, OtherKeys, StartsWith
 from .scalars import Str, Num, Bool, Regex
 from .contextual import CallbackValidator

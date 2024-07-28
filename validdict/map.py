@@ -155,11 +155,11 @@ class Map(ContextualValidator):
             # validate each key/value pair against it's KeyValidator and matching value Validator
             for k, v in value.items():                                                              # loop over all the key/value pairs in the dict to validate each of them
                 first_chance_results = self._validate_key_value_pair(k, v, self.keys, path, context)
-                if first_chance_results.result_count > 0:                                           # if the first chance (required/optional keys) results were found
+                if len(first_chance_results) > 0:                                           # if the first chance (required/optional keys) results were found
                     rval.add_results(first_chance_results)                                          # add the results
                 else:                                                                               # else, move on to trying to match the second chance (other) key
                     second_chance_results = self._validate_key_value_pair(k, v, self.other_keys, path, context)
-                    if second_chance_results.result_count > 0:                                      # if the second chance (other key) results were found 
+                    if len(second_chance_results) > 0:                                      # if the second chance (other key) results were found 
                         rval.add_results(second_chance_results)                                     # add the results
                     else:
                         rval.add_results(Result(outcome=self.invalid_outcome, value=k, path=extend_path(path, f"Key('{k}')"), validator=FixedOutcome(self.invalid_outcome, is_valid=False, message="unknown key name")))      # no keys validated, it must be illegal

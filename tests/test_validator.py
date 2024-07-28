@@ -1,5 +1,5 @@
 import pytest
-from validdict import Str, Num, Bool
+from validdict import Str, Num, Bool, Outcome, Seq
 from validdict.validator import ResultSet, Result
 from validdict.validator import Validator, Or, Any # objects under test
 
@@ -10,6 +10,12 @@ class TestValidator:
         validator = Validator()
         assert isinstance(validator, Validator)
         assert repr(validator) == "Validator()"
+
+        with pytest.raises(ValueError):
+            Validator(valid_outcome=Outcome.NONE)
+
+        with pytest.raises(ValueError):
+            Validator(invalid_outcome=Outcome.NONE)
 
     def test_validator_or_operator(self):
         v1 = Validator()
@@ -40,25 +46,25 @@ class TestOr:
     def test_or_constructor(self):
         or_validator = Or(Str(), Num())
         assert isinstance(or_validator, Or)
-        assert repr(or_validator) == "must be Str() | Num()"
+        assert repr(or_validator) == "must be Str(...) | Num(...)"
         results = or_validator.validate("A")
         assert isinstance(results, ResultSet)
 
         or_validator = Str() | Num()
         assert isinstance(or_validator, Or)
-        assert repr(or_validator) == "must be Str() | Num()"
+        assert repr(or_validator) == "must be Str(...) | Num(...)"
         results = or_validator.validate("A")
         assert isinstance(results, ResultSet)
 
         or_validator = Str() | Num() | Bool()
         assert isinstance(or_validator, Or)
-        assert repr(or_validator) == "must be Str() | Num() | Bool()"
+        assert repr(or_validator) == "must be Str(...) | Num(...) | Bool(...)"
         results = or_validator.validate("A")
         assert isinstance(results, ResultSet)
 
         or_validator = Str() | Num() | Or(Bool(), Str())
         assert isinstance(or_validator, Or)
-        assert repr(or_validator) == "must be Str() | Num() | Bool() | Str()"
+        assert repr(or_validator) == "must be Str(...) | Num(...) | Bool(...) | Str(...)"
         results = or_validator.validate("A")
         assert isinstance(results, ResultSet)
 
@@ -76,6 +82,11 @@ class TestOr:
         assert (Str("A") | Num(1234) | Bool(False)).validate("A")
         assert (Str("A") | Num(1234) | Bool(False)).validate(1234)
         assert not (Str("A") | Num(1234) | Bool(False)).validate(True)
+        assert (Str("A") | Str("B")).validate("A")
+        assert (Str("A") | Str("B")).validate("B")
+        assert (Str("A") | Seq(Str("B"))).validate("A")
+        assert (Str("A") | Seq(Str("B"))).validate(["B", "B"])
+        assert not (Str("A") | Seq(Str("B"))).validate(["B", "A"])
 
 
 class TestAny:
