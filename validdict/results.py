@@ -46,6 +46,10 @@ class OutcomeProvider(object):
         :param invalid_outcome:     the outcome to apply to the result when the value is invalid, default: FAIL
         :param comment:             comment associated with the possible outcomes
         """
+        if not isinstance(valid_outcome, Outcome):
+            raise TypeError("valid_outcome must be an Outcome")
+        if not isinstance(invalid_outcome, Outcome):
+            raise TypeError("invalid_outcome must be an Outcome")
         self.valid_outcome = valid_outcome
         self.invalid_outcome = invalid_outcome
         self.comment = comment
@@ -126,7 +130,6 @@ class Result(object):
         bool representation of the result
         :return:            True if the outcome matches the validator's valid_outcome AND doesn't match the validator's invalid_outcome, False otherwise
         """
-        # TODO: potential BUG since validators are not immutable, this could change... is that actually a feature?
         # check both valid and invalid outcomes to handle a situation where valid == invalid in the validator
         return (
             (self.outcome == self.validator.valid_outcome or self.validator.valid_outcome == Outcome.NONE)
@@ -181,6 +184,18 @@ class ResultSet(object):
         """
         return all(self._results)
     
+    def __len__(self) -> int:
+        """
+        :return:            the total count of results in the set
+        """
+        return len(self._results)
+    
+    def __iter__(self) -> Result:     
+        """
+        :return:            iterator for the results in the set
+        """
+        return iter(self._results)
+    
     def add_results(self, *results:object) -> None:
         """
         add results to the set
@@ -189,54 +204,66 @@ class ResultSet(object):
         if not all(isinstance(result, (Result, ResultSet)) for result in results):
             raise TypeError("added results must be either a Result or a ResultSet")
         for result in results:
-            if isinstance(result , ResultSet):
-                self._results.extend(result.get_results())
+            if isinstance(result, ResultSet):
+                self._results.extend(result._results)
             else:
                 self._results.append(result)
 
-    def get_results(self, *filters:Outcome) -> list[Result]:
+    # def get_results(self, *filters:Outcome) -> list[Result]:
+    #     """
+    #     Gets a list of results from the set that match the provided filters
+    #     :param filters:     args list of outcomes to filter the results, use no filters for all results
+    #     :return:            list of the results with the matching filters
+    #     """
+    #     if not all(isinstance(filter, Outcome) for filter in filters):
+    #         raise TypeError("filter(s) must be Outcome enums")
+    #     if len(filters) == 0:
+    #         return self._results
+    #     return [ result for result in self._results if result.outcome in filters ]
+    
+    def filter(self, *filters:Outcome) -> ResultSet:
         """
-        Gets a list of results from the set that match the provided filters
+        Filters the results in the set by the provided filters
         :param filters:     args list of outcomes to filter the results, use no filters for all results
-        :return:            list of the results with the matching filters
+        :return:            new result set containing only the results with the matching filters
         """
         if not all(isinstance(filter, Outcome) for filter in filters):
             raise TypeError("filter(s) must be Outcome enums")
         if len(filters) == 0:
-            return self._results
-        return [ result for result in self._results if result.outcome in filters ]
+            return self
+        return ResultSet(*(result for result in self._results if result.outcome in filters))
 
-    @property
-    def result_count(self) -> int:
-        """
-        :return:            the total count of results in the set
-        """
-        return len(self._results)
+    # @property
+    # def result_count(self) -> int:
+    #     """
+    #     :return:            the total count of results in the set
+    #     """
+    #     return len(self.get_results(Outcome.PASS, Outcome.INFO, Outcome.WARN, Outcome.FAIL))
 
-    @property
-    def pass_count(self) -> int:
-        """
-        :return:            the total count of PASS results in the set
-        """
-        return len(self.get_results(Outcome.PASS))
+    # @property
+    # def pass_count(self) -> int:
+    #     """
+    #     :return:            the total count of PASS results in the set
+    #     """
+    #     return len(self.get_results(Outcome.PASS))
     
-    @property
-    def fail_count(self) -> int:
-        """
-        :return:            the total count of FAIL results in the set
-        """
-        return len(self.get_results(Outcome.FAIL))
+    # @property
+    # def fail_count(self) -> int:
+    #     """
+    #     :return:            the total count of FAIL results in the set
+    #     """
+    #     return len(self.get_results(Outcome.FAIL))
     
-    @property
-    def warn_count(self) -> int:
-        """
-        :return:            the total count of WARN results in the set
-        """
-        return len(self.get_results(Outcome.WARN))
+    # @property
+    # def warn_count(self) -> int:
+    #     """
+    #     :return:            the total count of WARN results in the set
+    #     """
+    #     return len(self.get_results(Outcome.WARN))
     
-    @property
-    def info_count(self) -> int:
-        """
-        :return:            the total count of INFO results in the set
-        """
-        return len(self.get_results(Outcome.INFO))
+    # @property
+    # def info_count(self) -> int:
+    #     """
+    #     :return:            the total count of INFO results in the set
+    #     """
+    #     return len(self.get_results(Outcome.INFO))

@@ -1,5 +1,5 @@
 import pytest
-from validdict import Schema, Any, Num
+from validdict import Schema, Any, Num, Outcome
 from validdict import RequiredKey, OptionalKey, OtherKeys, StartsWith # objects under test
 
 
@@ -54,19 +54,19 @@ class TestKeyValidators:
             }
         )
         results = schema.validate({"name": "John"})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
         results = schema.validate({"age": 25})
-        assert results.fail_count == 2
+        assert len(results.filter(Outcome.FAIL)) == 2
         assert not results
 
         results = schema.validate({"name": "John", "age": 25})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
     def test_optional_key(self):
@@ -83,19 +83,19 @@ class TestKeyValidators:
         )
 
         results = schema.validate({"name": "John"})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"age": 25})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
         results = schema.validate({"name": "John", "age": 25})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
     def test_other_keys(self):
@@ -109,19 +109,19 @@ class TestKeyValidators:
         })
 
         results = schema.validate({})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"name": "John"})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"age": 25})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"name": "John", "age": 25})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
     def test_starts_with(self):
@@ -135,19 +135,19 @@ class TestKeyValidators:
         })
 
         results = schema.validate({"prefix_name": "John"})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"name": "John"})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
         results = schema.validate({"prefix_age": 25})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"PREFIX_age": 25})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
         with pytest.raises(TypeError):
@@ -167,13 +167,13 @@ class TestKeyValidators:
         })
 
         results = schema.validate({"PREFIX_name": "John"})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results
 
         results = schema.validate({"name": "John"})
-        assert results.fail_count == 1
+        assert len(results.filter(Outcome.FAIL)) == 1
         assert not results
 
         results = schema.validate({"prefix_age": 25})
-        assert results.fail_count == 0
+        assert len(results.filter(Outcome.FAIL)) == 0
         assert results

@@ -52,7 +52,7 @@ class Schema:
         # to avoid double conversion of each result into a string, convert and map to the logger we'll use later
         results_to_print = [
             (logging_config[result.outcome], repr(result))
-            for result in ResultSet(results).get_results(*outcome_filters)
+            for result in ResultSet(results).filter(*outcome_filters)
         ]
 
         min_indent_depth = 1000  # sys.maxint is more accurate, but this is good enough without having to import sys

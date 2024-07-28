@@ -17,6 +17,8 @@ class Validator(OutcomeProvider):
         :param valid_outcome:       the outcome to apply to the result when the value is valid, default: PASS
         :param invalid_outcome:     the outcome to apply to the result when the value is invalid, default: FAIL
         """
+        if valid_outcome == Outcome.NONE or invalid_outcome == Outcome.NONE:
+            raise ValueError("valid_outcome and invalid_outcome cannot be Outcome.NONE")
         super().__init__(valid_outcome=valid_outcome, invalid_outcome=invalid_outcome, comment=comment)
         self.repr = self.__class__.__name__ + "()"
 
@@ -89,7 +91,7 @@ class Or(Validator):
         """
         private helper method that returns a consistent shortened name for an Or'd validator
         """
-        return validator.__class__.__name__ + "()"
+        return validator.__class__.__name__ + "(...)"
 
     def __repr__(self) -> str:
         """
@@ -106,23 +108,17 @@ class Or(Validator):
         validates a value against two or more validators
         :param value:       the value to validate
         :param path:        list of parent keys for nested/compound structures
-        :return:            validation result set containing the first passing result, or all the failing results
+        :return:            validation result set, when invalid it contains all the failing results
         """
         results = ResultSet()
-        outcome = self.invalid_outcome
         for validator in self.validators:
-            result = validator.validate(
-                value, path=extend_path(path, f"Or({self._get_sub_validator_repr(validator)})")
-            )
+            # validate the value with the sub-validator
+            result = validator.validate(value, path=extend_path(path, f"Or({self._get_sub_validator_repr(validator)})"))
             if result:
-                # overwrite any previous failed results, we only need the one pass!
-                results = ResultSet(result)
-                outcome = self.valid_outcome
-                break  # out of for each validator, we found a passing result
-            else:
-                results.add_results(result)  # capture the complete list of failures
-                pass
-        return ResultSet(Result(outcome=outcome, value=value, path=path, validator=self), results)
+                # if any sub-validator passes, the overall result is valid
+                return ResultSet(Result(outcome=self.valid_outcome, value=value, path=path, validator=self), result)
+            results.add_results(result)
+        return ResultSet(Result(self.invalid_outcome, value=value, path=path, validator=self), results)
 
 
 class Any(Validator):
