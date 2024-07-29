@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "validdict"
-version = "0.1.0"
+version = "0.1.1"
 description = "ValidDictorian: Declarative Python Dictionary Validator"
 authors = ["Scott Perry <sperry04@users.noreply.github.com>"]
 license = "MIT"
